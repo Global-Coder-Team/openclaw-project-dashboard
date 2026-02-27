@@ -33,7 +33,7 @@
     .wrap { max-width: 1200px; margin: 0 auto; padding: 14px 16px; }
     h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; }
     .subtitle { font-size: 12px; color: var(--muted); }
-    main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 320px 1fr; gap: 14px; }
+    main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 380px 1fr; gap: 14px; }
     @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
     .card { border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), rgba(255,255,255,0.03)); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
     .cardHeader { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
@@ -60,6 +60,33 @@
     .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     .row { display:flex; align-items:center; gap:8px; }
     .small { font-size:12px; color:var(--muted); }
+    .section { margin-bottom: 8px; }
+    .sectionHeader { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; cursor: pointer; user-select: none; border-radius: 10px; background: rgba(255,255,255,0.03); }
+    .sectionHeader:hover { background: rgba(255,255,255,0.06); }
+    .sectionTitle { font-weight: 700; font-size: 13px; }
+    .sectionBody { padding: 8px 0; }
+    .sectionBody.collapsed { display: none; }
+    .chevron { transition: transform 0.2s; font-size: 11px; color: var(--muted); }
+    .chevron.open { transform: rotate(90deg); }
+    .source-badge { font-size: 10px; padding: 2px 6px; border-radius: 999px; font-weight: 600; }
+    .source-human { background: rgba(120,166,255,0.2); color: var(--accent); }
+    .source-agent { background: rgba(57,217,138,0.2); color: var(--good); }
+    .health-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .health-green { background: var(--good); }
+    .health-yellow { background: var(--warn); }
+    .health-red { background: var(--bad); }
+    .queue-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,0.03); cursor: grab; }
+    .queue-item.active { border-color: rgba(57,217,138,0.4); background: rgba(57,217,138,0.08); }
+    .queue-rank { font-size: 11px; color: var(--muted); min-width: 18px; text-align: center; }
+    .queue-text { flex: 1; font-size: 12px; }
+    .queue-project { font-size: 10px; color: var(--accent); }
+    .queue-actions { display: flex; gap: 4px; }
+    .queue-actions button { width: auto; padding: 3px 7px; font-size: 10px; }
+    .activity-item { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+    .activity-time { color: var(--muted); font-size: 11px; min-width: 40px; }
+    .pulse-dot { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .offline-badge { color: var(--bad); font-size: 11px; display: none; }
   </style>
 </head>
 <body>
@@ -74,15 +101,68 @@
   </header>
 
   <main>
-    <section class="card">
-      <div class="cardHeader"><div style="font-weight:700;">Projects</div><button class="secondary" id="btnRefresh" style="width:auto;">Refresh</button></div>
-      <div class="cardBody">
-        <div class="list" id="projectsList"></div>
-        <div class="muted" style="margin-top:8px;">Click a project to view details. Active projects show a pulse badge.</div>
+    <section class="card" style="overflow-y:auto; max-height: calc(100vh - 80px);">
+      <div class="cardHeader">
+        <div style="font-weight:700;">Command Center</div>
+        <div class="row" style="gap:6px;">
+          <span class="offline-badge" id="offlineBadge">offline</span>
+          <button class="secondary" id="btnRefresh" style="width:auto;">Refresh</button>
+        </div>
+      </div>
+      <div class="cardBody" style="padding:8px;">
+
+        <!-- Work Queue Section -->
+        <div class="section" id="sectionQueue">
+          <div class="sectionHeader" data-section="queue">
+            <div class="sectionTitle">Work Queue <span class="badge" id="queueCount">0</span></div>
+            <span class="chevron open" id="chevronQueue">&#9654;</span>
+          </div>
+          <div class="sectionBody" id="bodyQueue">
+            <div style="display:flex; gap:6px; margin-bottom:8px;">
+              <input id="queueInput" placeholder="Add instruction..." style="flex:1;" />
+              <button id="btnAddQueue" style="width:auto; padding:6px 10px;">Add</button>
+            </div>
+            <div id="queueList" class="list" style="gap:6px;"></div>
+          </div>
+        </div>
+
+        <!-- Cron Health Section -->
+        <div class="section" id="sectionCron">
+          <div class="sectionHeader" data-section="cron">
+            <div class="sectionTitle">Cron Health <span class="badge" id="cronCount">0</span></div>
+            <span class="chevron open" id="chevronCron">&#9654;</span>
+          </div>
+          <div class="sectionBody" id="bodyCron">
+            <div id="cronList" class="list" style="gap:6px;"></div>
+          </div>
+        </div>
+
+        <!-- Activity Feed Section -->
+        <div class="section" id="sectionActivity">
+          <div class="sectionHeader" data-section="activity">
+            <div class="sectionTitle">Activity Feed</div>
+            <span class="chevron open" id="chevronActivity">&#9654;</span>
+          </div>
+          <div class="sectionBody" id="bodyActivity">
+            <div id="activityList"></div>
+          </div>
+        </div>
+
+        <!-- Projects list (compact, below activity) -->
+        <div class="section" id="sectionProjects">
+          <div class="sectionHeader" data-section="projects">
+            <div class="sectionTitle">Projects <span class="badge" id="projectCount">0</span></div>
+            <span class="chevron open" id="chevronProjects">&#9654;</span>
+          </div>
+          <div class="sectionBody" id="bodyProjects">
+            <div class="list" id="projectsList"></div>
+          </div>
+        </div>
+
       </div>
     </section>
 
-    <section class="card" id="detailCard" style="display:none;">
+    <section class="card" id="detailCard">
       <div class="cardHeader" style="gap:8px; flex-wrap:wrap;">
         <div>
           <div id="projTitle" style="font-weight:700;"></div>
@@ -94,14 +174,16 @@
       </div>
       <div class="cardBody">
         <div class="tabs" id="detailTabs">
-          <div class="tab active" data-tab="overview">Overview</div>
+          <div class="tab active" data-tab="dashboard">Dashboard</div>
+          <div class="tab" data-tab="overview">Overview</div>
           <div class="tab" data-tab="tasks">Tasks</div>
           <div class="tab" data-tab="schedules">Schedules</div>
           <div class="tab" data-tab="strategy">Strategy</div>
           <div class="tab" data-tab="updates">Updates</div>
         </div>
 
-        <div id="view_overview" class="stack" style="margin-top:10px; display:grid; gap:10px;"></div>
+        <div id="view_dashboard" class="stack" style="margin-top:10px; display:grid; gap:10px;"></div>
+        <div id="view_overview" class="stack" style="margin-top:10px; display:none; gap:10px;"></div>
         <div id="view_tasks" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
         <div id="view_schedules" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
         <div id="view_strategy" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
@@ -164,6 +246,7 @@ function activeFor(projectId){
 function renderProjects(){
   const list = el('projectsList');
   const projects = STATE.projects || [];
+  el('projectCount').textContent = projects.length;
   list.innerHTML = projects.map(p => {
     const act = activeFor(p.id);
     return `<div class="item" data-id="${p.id}" style="cursor:pointer;">
@@ -174,15 +257,24 @@ function renderProjects(){
     </div>`;
   }).join('');
   list.querySelectorAll('.item').forEach(div => {
-    div.addEventListener('click', () => { selectedId = div.dataset.id; renderDetail(); });
+    div.addEventListener('click', () => { selectedId = div.dataset.id; switchTab('overview'); renderDetail(); });
   });
 }
 
 function renderDetail(){
-  const proj = (STATE.projects||[]).find(p => p.id===selectedId);
   const detail = el('detailCard');
+  detail.style.display = '';
+
+  if (currentTab === 'dashboard') {
+    el('projTitle').textContent = 'Dashboard';
+    el('projStatus').textContent = '';
+    el('projActive').style.display = 'none';
+    renderTab();
+    return;
+  }
+
+  const proj = (STATE.projects||[]).find(p => p.id===selectedId);
   if (!proj){ detail.style.display='none'; return; }
-  detail.style.display='';
   el('projTitle').textContent = proj.name;
   el('projStatus').textContent = `Status: ${proj.status}`;
   const act = activeFor(proj.id);
@@ -190,15 +282,13 @@ function renderDetail(){
   switchTab(currentTab);
 }
 
-let currentTab = 'overview';
+let currentTab = 'dashboard';
 function switchTab(tab){
   currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===tab));
-  el('view_overview').style.display = tab==='overview'?'':'none';
-  el('view_tasks').style.display = tab==='tasks'?'':'none';
-  el('view_schedules').style.display = tab==='schedules'?'':'none';
-  el('view_strategy').style.display = tab==='strategy'?'':'none';
-  el('view_updates').style.display = tab==='updates'?'':'none';
+  ['dashboard','overview','tasks','schedules','strategy','updates'].forEach(v => {
+    el('view_' + v).style.display = v === tab ? '' : 'none';
+  });
   renderTab();
 }
 
@@ -206,7 +296,65 @@ document.getElementById('detailTabs').addEventListener('click',(e)=>{ const t=e.
 
 document.getElementById('btnRefresh').addEventListener('click', refresh);
 
+document.querySelectorAll('.sectionHeader').forEach(header => {
+  header.addEventListener('click', () => {
+    const section = header.dataset.section;
+    const body = document.getElementById('body' + section.charAt(0).toUpperCase() + section.slice(1));
+    const chevron = document.getElementById('chevron' + section.charAt(0).toUpperCase() + section.slice(1));
+    if (body) body.classList.toggle('collapsed');
+    if (chevron) chevron.classList.toggle('open');
+  });
+});
+
 function renderTab(){
+  if (currentTab === 'dashboard') {
+    const projects = STATE?.projects || [];
+    const queue = STATE?.queue || [];
+    const crons = STATE?.cronHealth || [];
+    const activity = STATE?.activity || [];
+
+    const green = projects.filter(p => p.status === 'green').length;
+    const yellow = projects.filter(p => p.status === 'yellow').length;
+    const red = projects.filter(p => p.status === 'red').length;
+    const cronRed = crons.filter(c => c.health === 'red').length;
+    const cronYellow = crons.filter(c => c.health === 'yellow').length;
+    const inProgress = queue.find(q => q.status === 'in_progress');
+
+    el('view_dashboard').innerHTML = `
+      <div class="grid-2">
+        <div class="item">
+          <div class="itemTitle">Projects</div>
+          <div class="row" style="gap:12px; margin-top:6px;">
+            <span>${statusDot('green')} ${green} green</span>
+            <span>${statusDot('yellow')} ${yellow} yellow</span>
+            <span>${statusDot('red')} ${red} red</span>
+          </div>
+        </div>
+        <div class="item">
+          <div class="itemTitle">Work Queue</div>
+          <div style="margin-top:6px; font-size:13px;">
+            ${queue.length} pending${inProgress ? ` · <span style="color:var(--good);">Active: ${escapeHtml(inProgress.instruction.slice(0,50))}</span>` : ''}
+          </div>
+        </div>
+        <div class="item">
+          <div class="itemTitle">Cron Health</div>
+          <div class="row" style="gap:12px; margin-top:6px;">
+            <span><span class="health-dot health-green"></span>${crons.length - cronRed - cronYellow} healthy</span>
+            ${cronYellow ? `<span><span class="health-dot health-yellow"></span>${cronYellow} stale</span>` : ''}
+            ${cronRed ? `<span><span class="health-dot health-red"></span>${cronRed} failing</span>` : ''}
+          </div>
+        </div>
+        <div class="item">
+          <div class="itemTitle">Recent Activity</div>
+          <div style="margin-top:6px;">
+            ${activity.slice(0,5).map(a => `<div class="small">${fmtAge(Date.now()-a.createdAt)} · ${escapeHtml(a.action.replace(/_/g,' '))}${a.detail ? ': '+escapeHtml(a.detail.slice(0,60)) : ''}</div>`).join('') || '<div class="small">No activity</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   const proj = (STATE.projects||[]).find(p=>p.id===selectedId);
   if(!proj) return;
   const tasksBlock = (STATE.tasks||[]).find(t=>t.projectId===proj.id) || {items:[]};
