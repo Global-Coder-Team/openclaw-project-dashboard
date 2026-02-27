@@ -1,0 +1,11 @@
+{
+  "name": "openclaw-project-dashboard",
+  "version": "0.1.0",
+  "description": "Local-first project dashboard OpenClaw plugin (web UI + agent commands)",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.ts",
+  "dependencies": {
+    "openclaw": "^2026.2.25"
+  }
+}
