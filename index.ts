@@ -73,6 +73,32 @@ export default function register(api: OpenClawPluginApi) {
           const schedules = mapCronToProjects(projects, jobs);
           const tasks = projects.map((p) => ({ projectId: p.id, items: repo.listTasks(p.id) }));
           const active = computeActive(projects, recentUpdates, tasks, schedules);
+
+          // Update cron snapshots and detect changes
+          for (const j of jobs) {
+            const prev = repo.getCronSnapshot(j.id);
+            const status = j.status ?? "unknown";
+            if (!prev || prev.lastStatus !== status || (j.lastAt && j.lastAt !== prev.lastSeenAt)) {
+              repo.upsertCronSnapshot({ jobId: j.id, lastStatus: status });
+              if (prev && prev.lastStatus !== status) {
+                repo.logActivity({
+                  source: "agent",
+                  action: status === "failure" ? "cron_failed" : "cron_ran",
+                  detail: j.name,
+                });
+              }
+            }
+          }
+
+          // New fields
+          const queue = repo.listQueue();
+          const activityFeed = repo.listActivity(20);
+          const snapshots = repo.listCronSnapshots();
+          const cronHealth = jobs.map((j) => {
+            const snap = snapshots.find((s) => s.jobId === j.id);
+            return { ...j, lastStatus: snap?.lastStatus ?? "unknown", lastError: snap?.lastError ?? null, health: deriveHealth(snap) };
+          });
+
           res.writeHead(200, { "content-type": "application/json" });
           res.end(JSON.stringify({
             dbFile,
@@ -81,6 +107,9 @@ export default function register(api: OpenClawPluginApi) {
             schedules,
             tasks,
             active,
+            queue,
+            activity: activityFeed,
+            cronHealth,
           }));
           return;
         }
@@ -239,6 +268,62 @@ export default function register(api: OpenClawPluginApi) {
           }
         }
 
+        // ── Activity routes ──
+
+        if (req.method === "GET" && url.startsWith("/api/activity")) {
+          const params = new URL(url, "http://localhost").searchParams;
+          const limit = Number(params.get("limit") ?? 50);
+          const offset = Number(params.get("offset") ?? 0);
+          const repo = await getRepo();
+          return json(res, 200, repo.listActivity(limit, offset));
+        }
+
+        if (req.method === "POST" && url === "/api/activity") {
+          const body = await readJson(req);
+          const action = String(body?.action ?? "").trim();
+          const source = String(body?.source ?? "human").trim();
+          if (!action) return json(res, 400, { error: "action required" });
+          try {
+            const repo = await getRepo();
+            const entry = repo.logActivity({
+              projectId: body?.projectId ?? null,
+              source: source as any,
+              action,
+              detail: body?.detail ?? null,
+            });
+            return json(res, 200, entry);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        // ── Cron routes ──
+
+        if (req.method === "GET" && url === "/api/cron") {
+          const repo = await getRepo();
+          const jobs = loadCronJobsFromStateDir(stateDir);
+          const snapshots = repo.listCronSnapshots();
+          const cronHealth = jobs.map((j) => {
+            const snap = snapshots.find((s) => s.jobId === j.id);
+            return {
+              ...j,
+              lastStatus: snap?.lastStatus ?? "unknown",
+              lastError: snap?.lastError ?? null,
+              lastSeenAt: snap?.lastSeenAt ?? null,
+              health: deriveHealth(snap),
+            };
+          });
+          return json(res, 200, cronHealth);
+        }
+
+        if (req.method === "POST" && url === "/api/cron/trigger") {
+          return json(res, 501, { error: "Cron trigger not yet implemented — awaiting OpenClaw cron API" });
+        }
+
+        if (req.method === "POST" && url === "/api/cron/toggle") {
+          return json(res, 501, { error: "Cron toggle not yet implemented — awaiting OpenClaw cron API" });
+        }
+
         json(res, 404, { error: "not found" });
       })
       .listen(cfg.port, "127.0.0.1");
@@ -342,6 +427,14 @@ function mapCronToProjects(
       projectId,
     };
   });
+}
+
+function deriveHealth(snap: { lastStatus: string; lastSeenAt: number } | null | undefined): "green" | "yellow" | "red" {
+  if (!snap || !snap.lastSeenAt) return "yellow";
+  const age = Date.now() - snap.lastSeenAt;
+  if (snap.lastStatus === "failure") return "red";
+  if (age > 24 * 60 * 60 * 1000) return "yellow"; // stale > 24h
+  return "green";
 }
 
 function computeActive(projects: any[], updates: any[], tasks: any[], schedules: any[]) {
