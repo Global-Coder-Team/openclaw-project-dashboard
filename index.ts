@@ -28,6 +28,7 @@ export default function register(api: OpenClawPluginApi) {
     ? (api as any).runtime.state.resolveStateDir((api as any).config)
     : process.cwd();
 
+  const workspaceDir = process.cwd();
   const dbFile = resolveDbPath({ stateDir, dbPath: cfg.dbPath });
 
   // sql.js init is async; we lazily open on first use.
@@ -37,6 +38,15 @@ export default function register(api: OpenClawPluginApi) {
       repoPromise = openDb(dbFile).then((db) => makeRepo(db));
     }
     return repoPromise;
+  }
+
+  async function regenerateMd(repo: Awaited<ReturnType<typeof getRepo>>) {
+    const { generateAgentQueueMd, writeAgentQueueMd } = await import("./markdown.js");
+    const queueItems = repo.listQueue();
+    const projects = repo.listProjects();
+    const recentlyCompleted = repo.listRecentlyCompleted();
+    const content = generateAgentQueueMd({ queueItems, projects, recentlyCompleted });
+    writeAgentQueueMd(workspaceDir, content);
   }
 
   let server: http.Server | null = null;
@@ -99,6 +109,7 @@ export default function register(api: OpenClawPluginApi) {
           try {
             const repo = await getRepo();
             const proj = repo.updateProject(patch);
+            await regenerateMd(repo);
             return json(res, 200, proj);
           } catch (e: any) {
             return json(res, 400, { error: e?.message ?? "failed" });
@@ -150,6 +161,79 @@ export default function register(api: OpenClawPluginApi) {
             const repo = await getRepo();
             const task = repo.updateTask({ id, status: status as any, title });
             return json(res, 200, task);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        // ── Queue routes ──
+
+        if (req.method === "GET" && url === "/api/queue") {
+          const repo = await getRepo();
+          return json(res, 200, repo.listQueue());
+        }
+
+        if (req.method === "POST" && url === "/api/queue") {
+          const body = await readJson(req);
+          const instruction = String(body?.instruction ?? "").trim();
+          if (!instruction) return json(res, 400, { error: "instruction required" });
+          try {
+            const repo = await getRepo();
+            const item = repo.addQueueItem({
+              projectId: body?.projectId ?? null,
+              instruction,
+              rank: body?.rank,
+              source: body?.source ?? "human",
+            });
+            await regenerateMd(repo);
+            return json(res, 200, item);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        if (req.method === "POST" && url === "/api/queue/update") {
+          const body = await readJson(req);
+          const id = String(body?.id ?? "").trim();
+          if (!id) return json(res, 400, { error: "id required" });
+          try {
+            const repo = await getRepo();
+            const item = repo.updateQueueItem({
+              id,
+              status: body?.status,
+              instruction: body?.instruction,
+              rank: body?.rank,
+            });
+            await regenerateMd(repo);
+            return json(res, 200, item);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        if (req.method === "POST" && url === "/api/queue/reorder") {
+          const body = await readJson(req);
+          const ids = body?.ids;
+          if (!Array.isArray(ids)) return json(res, 400, { error: "ids array required" });
+          try {
+            const repo = await getRepo();
+            repo.reorderQueue(ids);
+            await regenerateMd(repo);
+            return json(res, 200, { ok: true });
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        if (req.method === "POST" && url === "/api/queue/delete") {
+          const body = await readJson(req);
+          const id = String(body?.id ?? "").trim();
+          if (!id) return json(res, 400, { error: "id required" });
+          try {
+            const repo = await getRepo();
+            repo.deleteQueueItem(id);
+            await regenerateMd(repo);
+            return json(res, 200, { ok: true });
           } catch (e: any) {
             return json(res, 400, { error: e?.message ?? "failed" });
           }
