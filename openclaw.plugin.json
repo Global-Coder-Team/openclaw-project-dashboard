@@ -1,5 +1,5 @@
 {
-  "id": "project-dashboard",
+  "id": "openclaw-project-dashboard",
   "name": "OpenClaw Project Dashboard",
   "description": "Local-first project dashboard with a web UI and agent-friendly commands.",
   "configSchema": {
