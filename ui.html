@@ -226,6 +226,7 @@ async function refresh(){
   el('dbMeta').textContent = 'SQLite';
   el('nowMeta').textContent = new Date().toLocaleTimeString();
   renderProjects();
+  renderQueue();
   if (!selectedId && data.projects.length) selectedId = data.projects[0].id;
   renderDetail();
 }
@@ -258,6 +259,72 @@ function renderProjects(){
   }).join('');
   list.querySelectorAll('.item').forEach(div => {
     div.addEventListener('click', () => { selectedId = div.dataset.id; switchTab('overview'); renderDetail(); });
+  });
+}
+
+function renderQueue() {
+  const queue = STATE?.queue || [];
+  el('queueCount').textContent = queue.length;
+  const list = el('queueList');
+  list.innerHTML = queue.map((q, i) => {
+    const proj = q.projectId ? (STATE.projects||[]).find(p=>p.id===q.projectId) : null;
+    const isActive = q.status === 'in_progress';
+    return `<div class="queue-item ${isActive ? 'active' : ''}" draggable="true" data-qid="${q.id}">
+      <div class="queue-rank">${i+1}</div>
+      <div style="flex:1;">
+        <div class="queue-text">${escapeHtml(q.instruction)}</div>
+        ${proj ? `<div class="queue-project">${escapeHtml(proj.name)}</div>` : ''}
+      </div>
+      <div class="queue-actions">
+        ${q.status === 'pending' ? `<button class="secondary" data-qaction="start" data-qid="${q.id}" title="Start">&#9654;</button>` : ''}
+        ${q.status === 'in_progress' ? `<button class="secondary" data-qaction="done" data-qid="${q.id}" title="Complete">&#10003;</button>` : ''}
+        <button class="secondary" data-qaction="skip" data-qid="${q.id}" title="Skip">&#8856;</button>
+        <button class="secondary" data-qaction="delete" data-qid="${q.id}" title="Delete">&times;</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Action buttons
+  list.querySelectorAll('button[data-qaction]').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const qid = btn.dataset.qid;
+      const action = btn.dataset.qaction;
+      if (action === 'start') await api('/api/queue/update', { id: qid, status: 'in_progress' });
+      else if (action === 'done') await api('/api/queue/update', { id: qid, status: 'completed' });
+      else if (action === 'skip') await api('/api/queue/update', { id: qid, status: 'skipped' });
+      else if (action === 'delete') await api('/api/queue/delete', { id: qid });
+      await refresh();
+    };
+  });
+
+  // Drag-to-reorder
+  let dragId = null;
+  list.querySelectorAll('.queue-item').forEach(item => {
+    item.addEventListener('dragstart', (e) => { dragId = item.dataset.qid; item.style.opacity = '0.4'; });
+    item.addEventListener('dragend', () => { item.style.opacity = ''; });
+    item.addEventListener('dragover', (e) => { e.preventDefault(); });
+    item.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      if (!dragId || dragId === item.dataset.qid) return;
+      const items = [...list.querySelectorAll('.queue-item')];
+      const ids = items.map(el => el.dataset.qid);
+      const fromIdx = ids.indexOf(dragId);
+      const toIdx = ids.indexOf(item.dataset.qid);
+      ids.splice(fromIdx, 1);
+      ids.splice(toIdx, 0, dragId);
+      dragId = null;
+      await api('/api/queue/reorder', { ids });
+      await refresh();
+    });
+  });
+
+  // Click queue item to select linked project
+  list.querySelectorAll('.queue-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const q = queue.find(q => q.id === item.dataset.qid);
+      if (q?.projectId) { selectedId = q.projectId; switchTab('overview'); renderDetail(); }
+    });
   });
 }
 
@@ -304,6 +371,19 @@ document.querySelectorAll('.sectionHeader').forEach(header => {
     if (body) body.classList.toggle('collapsed');
     if (chevron) chevron.classList.toggle('open');
   });
+});
+
+el('btnAddQueue').onclick = async () => {
+  const input = el('queueInput');
+  const instruction = input.value.trim();
+  if (!instruction) return;
+  await api('/api/queue', { instruction });
+  input.value = '';
+  await refresh();
+};
+
+el('queueInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') el('btnAddQueue').click();
 });
 
 function renderTab(){
