@@ -29,187 +29,104 @@
                   var(--bg);
       min-height: 100vh;
     }
-    header {
-      position: sticky; top: 0; z-index: 10;
-      backdrop-filter: blur(10px);
-      background: rgba(11,16,32,0.75);
-      border-bottom: 1px solid var(--line);
-    }
+    header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background: rgba(11,16,32,0.75); border-bottom: 1px solid var(--line); }
     .wrap { max-width: 1200px; margin: 0 auto; padding: 14px 16px; }
-    .titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .title { display: flex; flex-direction: column; gap: 2px; }
-    h1 { font-size: 15px; margin: 0; letter-spacing: 0.2px; }
+    h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; }
     .subtitle { font-size: 12px; color: var(--muted); }
-    .pill {
-      display: inline-flex; gap: 8px; align-items: center;
-      padding: 7px 10px; border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      font-size: 12px; color: var(--muted);
-    }
-    main { max-width: 1200px; margin: 0 auto; padding: 16px; }
-    .grid { display: grid; grid-template-columns: 420px 1fr; gap: 14px; }
-    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
-
-    .card {
-      border: 1px solid var(--line);
-      background: linear-gradient(180deg, var(--panel), rgba(255,255,255,0.03));
-      border-radius: 16px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .cardHeader { padding: 12px 12px; border-bottom: 1px solid var(--line); display:flex; align-items:center; justify-content:space-between; }
-    .cardTitle { font-size: 13px; font-weight: 650; }
+    main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: 320px 1fr; gap: 14px; }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+    .card { border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), rgba(255,255,255,0.03)); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+    .cardHeader { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
     .cardBody { padding: 12px; }
-
-    .stack { display: grid; gap: 10px; }
-
-    input, select, textarea, button {
-      width: 100%;
-      padding: 10px 11px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,0.18);
-      color: var(--text);
-      outline: none;
-    }
-    textarea { min-height: 96px; resize: vertical; }
-    input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.45); }
-    button {
-      cursor: pointer;
-      background: linear-gradient(180deg, rgba(120,166,255,0.35), rgba(120,166,255,0.18));
-      border: 1px solid rgba(120,166,255,0.45);
-      font-weight: 650;
-    }
-    button.secondary {
-      background: rgba(255,255,255,0.06);
-      border-color: var(--line);
-      font-weight: 600;
-    }
-    button:active { transform: translateY(1px); }
-
-    .kpiRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    @media (max-width: 980px) { .kpiRow { grid-template-columns: 1fr; } }
-    .kpi { padding: 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); }
-    .kpiLabel { font-size: 11px; color: var(--muted); }
-    .kpiValue { font-size: 18px; font-weight: 750; margin-top: 4px; }
-
+    .muted { color: var(--muted); font-size: 12px; }
+    .list { display: grid; gap: 8px; }
+    .item { border: 1px solid var(--line); background: rgba(255,255,255,0.04); border-radius: 12px; padding: 10px; display: grid; gap: 4px; }
+    .itemTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .itemTitle { font-weight: 700; font-size: 13px; }
+    .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    input, select, textarea, button { width: 100%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(0,0,0,0.18); color: var(--text); outline: none; }
+    textarea { min-height: 80px; }
+    button { cursor: pointer; background: linear-gradient(180deg, rgba(120,166,255,0.35), rgba(120,166,255,0.18)); border: 1px solid rgba(120,166,255,0.45); font-weight: 650; }
+    button.secondary { background: rgba(255,255,255,0.05); border-color: var(--line); font-weight: 600; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab { padding: 7px 10px; border-radius: 999px; border:1px solid var(--line); background: rgba(255,255,255,0.05); color: var(--muted); cursor:pointer; font-size: 12px; }
+    .tab.active { border-color: rgba(120,166,255,0.55); color: var(--text); background: rgba(120,166,255,0.14); }
     .statusDot { width: 9px; height: 9px; border-radius: 999px; display:inline-block; margin-right: 8px; }
     .dot-green { background: var(--good); }
     .dot-yellow { background: var(--warn); }
     .dot-red { background: var(--bad); }
-
-    .list { display: grid; gap: 8px; }
-    .item {
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.04);
-      border-radius: 14px;
-      padding: 10px;
-      display: grid;
-      gap: 4px;
-    }
-    .itemTop { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
-    .itemTitle { font-weight: 700; font-size: 13px; }
-    .itemMeta { color: var(--muted); font-size: 11px; }
-    .badge { font-size: 11px; color: var(--muted); border: 1px solid var(--line); padding: 3px 8px; border-radius: 999px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-
-    .tabs { display:flex; gap: 8px; flex-wrap: wrap; }
-    .tab { padding: 7px 10px; border-radius: 999px; border:1px solid var(--line); background: rgba(255,255,255,0.05); color: var(--muted); cursor:pointer; font-size: 12px; }
-    .tab.active { border-color: rgba(120,166,255,0.55); color: var(--text); background: rgba(120,166,255,0.14); }
-
-    a { color: var(--accent); text-decoration: none; }
-    .error { color: #ffd1d8; font-size: 12px; }
+    .pill { display:inline-flex; gap:6px; align-items:center; padding:6px 9px; border-radius:999px; border:1px solid var(--line); background: var(--panel); font-size:12px; color: var(--muted); }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .row { display:flex; align-items:center; gap:8px; }
+    .small { font-size:12px; color:var(--muted); }
   </style>
 </head>
 <body>
   <header>
-    <div class="wrap titlebar">
-      <div class="title">
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div>
         <h1>Project Dashboard</h1>
-        <div class="subtitle">Manual-first. Local-first. Designed for clarity.</div>
+        <div class="subtitle">Manual-first. Local-first. Shows what’s moving right now.</div>
       </div>
       <div class="pill"><span class="mono" id="dbMeta">DB</span> <span id="nowMeta"></span></div>
     </div>
   </header>
 
   <main>
-    <div class="grid">
-      <section class="card">
-        <div class="cardHeader">
-          <div class="cardTitle">Quick capture</div>
-          <button class="secondary" id="btnRefresh" style="width:auto; padding: 8px 10px; border-radius: 12px;">Refresh</button>
-        </div>
-        <div class="cardBody stack">
-          <div class="kpiRow">
-            <div class="kpi"><div class="kpiLabel">Projects</div><div class="kpiValue" id="kpiProjects">—</div></div>
-            <div class="kpi"><div class="kpiLabel">Blockers</div><div class="kpiValue" id="kpiBlockers">—</div></div>
-            <div class="kpi"><div class="kpiLabel">Updates (24h)</div><div class="kpiValue" id="kpiUpdates">—</div></div>
-          </div>
+    <section class="card">
+      <div class="cardHeader"><div style="font-weight:700;">Projects</div><button class="secondary" id="btnRefresh" style="width:auto;">Refresh</button></div>
+      <div class="cardBody">
+        <div class="list" id="projectsList"></div>
+        <div class="muted" style="margin-top:8px;">Click a project to view details. Active projects show a pulse badge.</div>
+      </div>
+    </section>
 
-          <div class="stack">
-            <div class="cardTitle" style="margin-top:4px">Create project</div>
-            <input id="projectName" placeholder="e.g. GoatPort – onboarding flow" />
-            <button id="btnAddProject">Create</button>
+    <section class="card" id="detailCard" style="display:none;">
+      <div class="cardHeader" style="gap:8px; flex-wrap:wrap;">
+        <div>
+          <div id="projTitle" style="font-weight:700;"></div>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <span class="pill" id="projStatus"></span>
+            <span class="pill" id="projActive" style="display:none; background: rgba(57,217,138,0.18); border-color: rgba(57,217,138,0.5); color: #39d98a;"></span>
           </div>
+        </div>
+      </div>
+      <div class="cardBody">
+        <div class="tabs" id="detailTabs">
+          <div class="tab active" data-tab="overview">Overview</div>
+          <div class="tab" data-tab="tasks">Tasks</div>
+          <div class="tab" data-tab="schedules">Schedules</div>
+          <div class="tab" data-tab="strategy">Strategy</div>
+          <div class="tab" data-tab="updates">Updates</div>
+        </div>
 
-          <div class="stack" style="margin-top:4px">
-            <div class="cardTitle">Add update</div>
-            <select id="projectSelect"></select>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <select id="updateType">
-                <option value="progress">progress</option>
-                <option value="blocker">blocker</option>
-                <option value="decision">decision</option>
-                <option value="note">note</option>
-                <option value="request">request</option>
-              </select>
-              <select id="statusHint">
-                <option value="">status: (no change)</option>
-                <option value="green">status: green</option>
-                <option value="yellow">status: yellow</option>
-                <option value="red">status: red</option>
-              </select>
-            </div>
-            <textarea id="updateText" placeholder="One sentence: what changed, what’s next, or what’s blocked." ></textarea>
-            <button id="btnAddUpdate">Add update</button>
-            <div class="error" id="formError" style="display:none"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="cardHeader">
-          <div class="tabs" id="tabs">
-            <div class="tab active" data-tab="overview">Overview</div>
-            <div class="tab" data-tab="projects">Projects</div>
-            <div class="tab" data-tab="updates">Updates</div>
-          </div>
-          <div class="badge" id="metaBadge">—</div>
-        </div>
-        <div class="cardBody">
-          <div id="view_overview" class="stack"></div>
-          <div id="view_projects" class="stack" style="display:none"></div>
-          <div id="view_updates" class="stack" style="display:none"></div>
-        </div>
-      </section>
-    </div>
+        <div id="view_overview" class="stack" style="margin-top:10px; display:grid; gap:10px;"></div>
+        <div id="view_tasks" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
+        <div id="view_schedules" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
+        <div id="view_strategy" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
+        <div id="view_updates" style="display:none; margin-top:10px; display:grid; gap:10px;"></div>
+      </div>
+    </section>
   </main>
 
 <script>
+let STATE = null;
+let selectedId = null;
 const el = (id) => document.getElementById(id);
-
-function fmtAge(ms){
-  if (ms < 60_000) return String(Math.floor(ms/1000)) + 's';
-  if (ms < 3_600_000) return String(Math.floor(ms/60_000)) + 'm';
-  if (ms < 86_400_000) return String(Math.floor(ms/3_600_000)) + 'h';
-  return String(Math.floor(ms/86_400_000)) + 'd';
-}
 
 function statusDot(status){
   const cls = status === 'red' ? 'dot-red' : status === 'yellow' ? 'dot-yellow' : 'dot-green';
-  return '<span class="statusDot ' + cls + '"></span>';
+  return `<span class="statusDot ${cls}"></span>`;
 }
+
+function fmtAge(ms){
+  if (ms < 60_000) return `${Math.floor(ms/1000)}s`;
+  if (ms < 3_600_000) return `${Math.floor(ms/60_000)}m`;
+  if (ms < 86_400_000) return `${Math.floor(ms/3_600_000)}h`;
+  return `${Math.floor(ms/86_400_000)}d`;
+}
+function fmtTime(ts){ if(!ts) return '—'; return new Date(ts).toLocaleString(); }
 
 async function api(path, body) {
   const res = await fetch(path, body ? {
@@ -221,161 +138,216 @@ async function api(path, body) {
   return await res.json();
 }
 
-function setError(msg){
-  const box = el('formError');
-  if (!msg) { box.style.display='none'; box.textContent=''; return; }
-  box.style.display='block';
-  box.textContent = msg;
-}
-
-let STATE = null;
-
 async function refresh(){
-  setError('');
   const data = await api('/api/state');
   STATE = data;
-
   el('dbMeta').textContent = 'SQLite';
-  el('nowMeta').textContent = new Date().toLocaleString();
-
-  el('kpiProjects').textContent = data.projects.length;
-
-  const blockers = data.recentUpdates.filter(u => u.type === 'blocker').length;
-  el('kpiBlockers').textContent = blockers;
-
-  const since = Date.now() - 24*60*60*1000;
-  const updates24 = data.recentUpdates.filter(u => u.createdAt >= since).length;
-  el('kpiUpdates').textContent = updates24;
-
-  el('projectSelect').innerHTML = data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('') || `<option value="">(no projects)</option>`;
-  el('metaBadge').textContent = 'Last refresh: ' + new Date().toLocaleTimeString();
-
-  renderOverview();
+  el('nowMeta').textContent = new Date().toLocaleTimeString();
   renderProjects();
-  renderUpdates();
+  if (!selectedId && data.projects.length) selectedId = data.projects[0].id;
+  renderDetail();
 }
 
-function renderOverview(){
-  const root = el('view_overview');
-  const projects = STATE.projects;
-  const recent = STATE.recentUpdates;
-
-  const red = projects.filter(p=>p.status==='red').length;
-  const yellow = projects.filter(p=>p.status==='yellow').length;
-  const green = projects.filter(p=>p.status==='green').length;
-
-  const top = projects.slice(0, 6).map(p => {
-    const age = fmtAge(Date.now() - p.updatedAt);
-    const line = p.nextAction ? p.nextAction : (p.objective || '');
-    return `<div class="item">
-      <div class="itemTop">
-        <div class="itemTitle">${statusDot(p.status)}${escapeHtml(p.name)}</div>
-        <div class="badge">updated ${age} ago</div>
-      </div>
-      <div class="itemMeta">${escapeHtml(line || 'No next action set.')}</div>
-    </div>`;
-  }).join('');
-
-  const feed = recent.slice(0, 10).map(u => {
-    const age = fmtAge(Date.now() - u.createdAt);
-    return `<div class="item">
-      <div class="itemTop">
-        <div class="itemTitle">${escapeHtml(u.projectName)}</div>
-        <div class="badge">${escapeHtml(u.type)} · ${age} ago</div>
-      </div>
-      <div class="itemMeta">${escapeHtml(u.text)}</div>
-    </div>`;
-  }).join('') || `<div class="item"><div class="itemMeta">No updates yet.</div></div>`;
-
-  root.innerHTML = `
-    <div class="kpiRow">
-      <div class="kpi"><div class="kpiLabel">Green</div><div class="kpiValue">${green}</div></div>
-      <div class="kpi"><div class="kpiLabel">Yellow</div><div class="kpiValue">${yellow}</div></div>
-      <div class="kpi"><div class="kpiLabel">Red</div><div class="kpiValue">${red}</div></div>
-    </div>
-    <div class="cardTitle" style="margin-top:6px">Most recently touched</div>
-    <div class="list">${top || ''}</div>
-    <div class="cardTitle" style="margin-top:6px">Recent activity</div>
-    <div class="list">${feed}</div>
-  `;
+function activeFor(projectId){
+  const now = Date.now();
+  const upd = (STATE?.recentUpdates||[]).find(u => u.projectId===projectId && (now - u.createdAt) <= 10*60*1000);
+  const taskBlock = (STATE?.tasks||[]).find(t => t.projectId===projectId);
+  const doing = (taskBlock?.items||[]).find(t => t.status==='doing' && (now - t.updatedAt)<=15*60*1000);
+  const schedule = (STATE?.schedules||[]).find(s => s.projectId===projectId && s.lastAt && (now - s.lastAt)<=5*60*1000);
+  const reasons = [];
+  if (upd) reasons.push(`Recent update ${fmtAge(now - upd.createdAt)} ago`);
+  if (doing) reasons.push(`Task in progress: ${doing.title}`);
+  if (schedule) reasons.push(`Schedule ran ${fmtAge(now - schedule.lastAt)} ago: ${schedule.jobName}`);
+  return {active: reasons.length>0, reasons};
 }
 
 function renderProjects(){
-  const root = el('view_projects');
-  const projects = STATE.projects;
-  if (!projects.length) {
-    root.innerHTML = `<div class="item"><div class="itemMeta">No projects yet.</div></div>`;
-    return;
-  }
-  root.innerHTML = projects.map(p => {
-    const line = p.nextAction || p.objective || '';
-    return `<div class="item">
+  const list = el('projectsList');
+  const projects = STATE.projects || [];
+  list.innerHTML = projects.map(p => {
+    const act = activeFor(p.id);
+    return `<div class="item" data-id="${p.id}" style="cursor:pointer;">
       <div class="itemTop">
         <div class="itemTitle">${statusDot(p.status)}${escapeHtml(p.name)}</div>
-        <div class="badge mono">${p.id}</div>
+        ${act.active ? `<span class='badge' style='color:#39d98a;border-color:rgba(57,217,138,0.4);background:rgba(57,217,138,0.15);'>Active</span>` : ''}
       </div>
-      <div class="itemMeta">${escapeHtml(line || '—')}</div>
     </div>`;
   }).join('');
+  list.querySelectorAll('.item').forEach(div => {
+    div.addEventListener('click', () => { selectedId = div.dataset.id; renderDetail(); });
+  });
 }
 
-function renderUpdates(){
-  const root = el('view_updates');
-  const recent = STATE.recentUpdates;
-  root.innerHTML = recent.map(u => {
-    const age = fmtAge(Date.now() - u.createdAt);
-    return `<div class="item">
-      <div class="itemTop">
-        <div class="itemTitle">${escapeHtml(u.projectName)}</div>
-        <div class="badge">${escapeHtml(u.type)} · ${age} ago</div>
-      </div>
-      <div class="itemMeta">${escapeHtml(u.text)}</div>
-    </div>`;
-  }).join('') || `<div class="item"><div class="itemMeta">No updates yet.</div></div>`;
+function renderDetail(){
+  const proj = (STATE.projects||[]).find(p => p.id===selectedId);
+  const detail = el('detailCard');
+  if (!proj){ detail.style.display='none'; return; }
+  detail.style.display='';
+  el('projTitle').textContent = proj.name;
+  el('projStatus').textContent = `Status: ${proj.status}`;
+  const act = activeFor(proj.id);
+  if (act.active){ el('projActive').style.display='inline-flex'; el('projActive').textContent = act.reasons[0] || 'Active now'; } else { el('projActive').style.display='none'; }
+  switchTab(currentTab);
 }
 
+let currentTab = 'overview';
 function switchTab(tab){
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  el('view_overview').style.display = tab === 'overview' ? '' : 'none';
-  el('view_projects').style.display = tab === 'projects' ? '' : 'none';
-  el('view_updates').style.display = tab === 'updates' ? '' : 'none';
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===tab));
+  el('view_overview').style.display = tab==='overview'?'':'none';
+  el('view_tasks').style.display = tab==='tasks'?'':'none';
+  el('view_schedules').style.display = tab==='schedules'?'':'none';
+  el('view_strategy').style.display = tab==='strategy'?'':'none';
+  el('view_updates').style.display = tab==='updates'?'':'none';
+  renderTab();
 }
 
-document.getElementById('tabs').addEventListener('click', (e) => {
-  const t = e.target.closest('.tab');
-  if (!t) return;
-  switchTab(t.dataset.tab);
-});
+document.getElementById('detailTabs').addEventListener('click',(e)=>{ const t=e.target.closest('.tab'); if(!t) return; switchTab(t.dataset.tab);} );
 
-el('btnRefresh').addEventListener('click', refresh);
+document.getElementById('btnRefresh').addEventListener('click', refresh);
 
-el('btnAddProject').addEventListener('click', async () => {
-  try {
-    const name = el('projectName').value.trim();
-    if (!name) return;
-    await api('/api/projects', { name });
-    el('projectName').value = '';
-    await refresh();
-  } catch (err) {
-    setError(err.message || String(err));
+function renderTab(){
+  const proj = (STATE.projects||[]).find(p=>p.id===selectedId);
+  if(!proj) return;
+  const tasksBlock = (STATE.tasks||[]).find(t=>t.projectId===proj.id) || {items:[]};
+  const schedules = (STATE.schedules||[]).filter(s=>s.projectId===proj.id);
+  const updates = (STATE.recentUpdates||[]).filter(u=>u.projectId===proj.id).slice(0,10);
+
+  if (currentTab==='overview'){
+    el('view_overview').innerHTML = `
+      <div class="item">
+        <div class="itemTop"><div class="itemTitle">Objective</div></div>
+        <div>${escapeHtml(proj.objective || 'Not set')}</div>
+      </div>
+      <div class="item">
+        <div class="itemTop"><div class="itemTitle">Next Action</div></div>
+        <div>${escapeHtml(proj.nextAction || 'Not set')}</div>
+      </div>
+      <div class="item">
+        <div class="itemTop"><div class="itemTitle">Recent Activity</div></div>
+        <div>${updates.map(u=>`<div class='small'>${escapeHtml(u.type)} · ${fmtAge(Date.now()-u.createdAt)} ago · ${escapeHtml(u.text)}</div>`).join('') || '<div class="small">No updates.</div>'}</div>
+      </div>
+    `;
   }
-});
 
-el('btnAddUpdate').addEventListener('click', async () => {
-  try {
-    const projectId = el('projectSelect').value;
-    const type = el('updateType').value;
-    const text = el('updateText').value.trim();
-    const status = el('statusHint').value;
-    if (!projectId || !text) return;
-    await api('/api/updates', { projectId, type, text, status: status || null });
-    el('updateText').value = '';
-    el('statusHint').value = '';
-    await refresh();
-  } catch (err) {
-    setError(err.message || String(err));
+  if (currentTab==='tasks'){
+    el('view_tasks').innerHTML = `
+      <div class="item">
+        <div class="itemTop"><div class="itemTitle">Add Task</div></div>
+        <input id="newTaskTitle" placeholder="Task title" />
+        <button id="btnAddTask">Add</button>
+      </div>
+      <div class="list">${tasksBlock.items.map(t => `
+        <div class="item">
+          <div class="itemTop">
+            <div class="itemTitle">${escapeHtml(t.title)}</div>
+            <div class="row" style="gap:6px;">
+              <span class="badge">${t.status}</span>
+              <button class="secondary" data-task="${t.id}" data-status="todo">todo</button>
+              <button class="secondary" data-task="${t.id}" data-status="doing">doing</button>
+              <button class="secondary" data-task="${t.id}" data-status="done">done</button>
+            </div>
+          </div>
+          <div class="small">Updated ${fmtAge(Date.now()-t.updatedAt)} ago</div>
+        </div>
+      `).join('') || '<div class="item"><div class="small">No tasks yet.</div></div>'}</div>
+    `;
+    const addBtn = el('btnAddTask');
+    if (addBtn) addBtn.onclick = async ()=>{
+      const title = el('newTaskTitle').value.trim();
+      if (!title) return;
+      await api('/api/tasks', { projectId: proj.id, title });
+      el('newTaskTitle').value='';
+      await refresh();
+      switchTab('tasks');
+    };
+    el('view_tasks').querySelectorAll('button[data-task]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const taskId = btn.dataset.task;
+        const status = btn.dataset.status;
+        await api('/api/tasks/update', { id: taskId, status });
+        await refresh();
+        switchTab('tasks');
+      };
+    });
   }
-});
+
+  if (currentTab==='schedules'){
+    el('view_schedules').innerHTML = schedules.length ? schedules.map(s=>`
+      <div class="item">
+        <div class="itemTop"><div class="itemTitle">${escapeHtml(s.jobName)}</div><span class="badge">${escapeHtml(s.status||'')}</span></div>
+        <div class="small">Last: ${fmtTime(s.lastAt)} | Next: ${fmtTime(s.nextAt)}</div>
+      </div>
+    `).join('') : '<div class="item"><div class="small">No schedules linked.</div></div>';
+  }
+
+  if (currentTab==='strategy'){
+    el('view_strategy').innerHTML = `
+      <div class="grid-2">
+        <div class="item"><div class="itemTitle">Strategy</div><textarea id="fStrategy">${escapeHtml(proj.strategy||'')}</textarea></div>
+        <div class="item"><div class="itemTitle">Hypothesis</div><textarea id="fHypothesis">${escapeHtml(proj.hypothesis||'')}</textarea></div>
+        <div class="item"><div class="itemTitle">Constraints</div><textarea id="fConstraints">${escapeHtml(proj.constraints||'')}</textarea></div>
+        <div class="item"><div class="itemTitle">Success looks like</div><textarea id="fSuccess">${escapeHtml(proj.success||'')}</textarea></div>
+      </div>
+      <button id="btnSaveStrategy">Save</button>
+    `;
+    const save = el('btnSaveStrategy');
+    save.onclick = async ()=>{
+      await api('/api/projects/update', {
+        id: proj.id,
+        strategy: el('fStrategy').value,
+        hypothesis: el('fHypothesis').value,
+        constraints: el('fConstraints').value,
+        success: el('fSuccess').value,
+      });
+      await refresh();
+      switchTab('strategy');
+    };
+  }
+
+  if (currentTab==='updates'){
+    el('view_updates').innerHTML = `
+      <div class="item">
+        <div class="itemTop"><div class="itemTitle">Add Update</div></div>
+        <div class="grid-2">
+          <select id="updateType">
+            <option value="progress">progress</option>
+            <option value="blocker">blocker</option>
+            <option value="decision">decision</option>
+            <option value="note">note</option>
+            <option value="request">request</option>
+          </select>
+          <select id="statusHint">
+            <option value="">status: (no change)</option>
+            <option value="green">status: green</option>
+            <option value="yellow">status: yellow</option>
+            <option value="red">status: red</option>
+          </select>
+        </div>
+        <textarea id="updateText" placeholder="One sentence: what changed, what’s next, or what’s blocked." ></textarea>
+        <button id="btnAddUpdate">Add update</button>
+      </div>
+      <div class="list">${updates.map(u=>`
+        <div class="item">
+          <div class="itemTop"><div class="itemTitle">${escapeHtml(u.type)}</div><div class="badge">${fmtAge(Date.now()-u.createdAt)} ago</div></div>
+          <div class="itemMeta">${escapeHtml(u.text)}</div>
+        </div>
+      `).join('') || '<div class="item"><div class="small">No updates yet.</div></div>'}</div>
+    `;
+    const btn = el('btnAddUpdate');
+    if (btn) btn.onclick = async ()=>{
+      const type = el('updateType').value;
+      const text = el('updateText').value.trim();
+      const status = el('statusHint').value;
+      if (!text) return;
+      await api('/api/updates', { projectId: proj.id, type, text, status: status || null });
+      el('updateText').value='';
+      el('statusHint').value='';
+      await refresh();
+      switchTab('updates');
+    };
+  }
+}
 
 function escapeHtml(s){
   return String(s)
@@ -386,9 +358,9 @@ function escapeHtml(s){
     .replaceAll("'",'&#039;');
 }
 
-refresh().catch(err => {
+refresh().catch(err=>{
   console.error(err);
-  setError('Failed to load: ' + (err.message || err));
+  alert('Failed to load: '+err.message);
 });
 </script>
 </body>

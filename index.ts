@@ -62,6 +62,7 @@ export default function register(api: OpenClawPluginApi) {
           const jobs = loadCronJobsFromStateDir(stateDir);
           const schedules = mapCronToProjects(projects, jobs);
           const tasks = projects.map((p) => ({ projectId: p.id, items: repo.listTasks(p.id) }));
+          const active = computeActive(projects, recentUpdates, tasks, schedules);
           res.writeHead(200, { "content-type": "application/json" });
           res.end(JSON.stringify({
             dbFile,
@@ -69,6 +70,7 @@ export default function register(api: OpenClawPluginApi) {
             recentUpdates,
             schedules,
             tasks,
+            active,
           }));
           return;
         }
@@ -255,6 +257,21 @@ function mapCronToProjects(
       nextAt: j.nextAt ?? null,
       projectId,
     };
+  });
+}
+
+function computeActive(projects: any[], updates: any[], tasks: any[], schedules: any[]) {
+  const now = Date.now();
+  return projects.map((p) => {
+    const upd = updates.find((u) => u.projectId === p.id && now - u.createdAt <= 10 * 60 * 1000);
+    const taskBlock = tasks.find((t: any) => t.projectId === p.id) || { items: [] };
+    const doing = (taskBlock.items || []).find((t: any) => t.status === "doing" && now - t.updatedAt <= 15 * 60 * 1000);
+    const schedule = schedules.find((s: any) => s.projectId === p.id && s.lastAt && now - s.lastAt <= 5 * 60 * 1000);
+    const reasons: string[] = [];
+    if (upd) reasons.push(`Recent update ${Math.floor((now - upd.createdAt) / 60000)}m ago`);
+    if (doing) reasons.push(`Task in progress: ${doing.title}`);
+    if (schedule) reasons.push(`Schedule ran ${Math.floor((now - schedule.lastAt) / 60000)}m ago: ${schedule.jobName}`);
+    return { projectId: p.id, reasons };
   });
 }
 
