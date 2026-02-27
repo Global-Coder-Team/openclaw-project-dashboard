@@ -10,6 +10,10 @@
       "index.ts"
     ]
   },
+  "scripts": {
+    "test": "echo no-tests",
+    "build": "echo no-build"
+  },
   "dependencies": {
     "openclaw": "^2026.2.25",
     "sql.js": "^1.13.0"
