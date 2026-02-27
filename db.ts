@@ -322,6 +322,15 @@ export function makeRepo(db: SqlDb) {
           updated.id,
         ]
       );
+      // Auto-log status change
+      if (existing.status !== updated.status) {
+        this.logActivity({
+          projectId: updated.id,
+          source: "human",
+          action: "status_changed",
+          detail: `${existing.status} → ${updated.status}`,
+        });
+      }
       return this.getProjectById(updated.id)!;
     },
     addUpdate(params: { projectId: string; type: UpdateType; text: string }): Update {
@@ -334,6 +343,12 @@ export function makeRepo(db: SqlDb) {
         params.text,
         now,
       ]);
+      this.logActivity({
+        projectId: params.projectId,
+        source: "human",
+        action: "update_added",
+        detail: `${params.type}: ${params.text.slice(0, 100)}`,
+      });
       // bump project updatedAt
       const proj = this.getProjectById(params.projectId);
       if (proj) this.updateProject({ id: proj.id, updatedAt: now } as any);
@@ -383,6 +398,24 @@ export function makeRepo(db: SqlDb) {
         updated.updatedAt,
         updated.id,
       ]);
+      // Auto-log task status transitions
+      if (params.status && params.status !== task.status) {
+        if (params.status === "doing") {
+          this.logActivity({
+            projectId: task.projectId,
+            source: "human",
+            action: "task_started",
+            detail: updated.title,
+          });
+        } else if (params.status === "done") {
+          this.logActivity({
+            projectId: task.projectId,
+            source: "human",
+            action: "task_completed",
+            detail: updated.title,
+          });
+        }
+      }
       return updated;
     },
 
@@ -422,6 +455,24 @@ export function makeRepo(db: SqlDb) {
       exec(db, `UPDATE queue SET status=?, instruction=?, rank=?, updatedAt=? WHERE id=?`, [
         updated.status, updated.instruction, updated.rank, updated.updatedAt, updated.id,
       ]);
+      // Auto-log queue status transitions
+      if (params.status && params.status !== existing.status) {
+        if (params.status === "in_progress") {
+          this.logActivity({
+            projectId: existing.projectId,
+            source: existing.source,
+            action: "queue_picked",
+            detail: existing.instruction,
+          });
+        } else if (params.status === "completed") {
+          this.logActivity({
+            projectId: existing.projectId,
+            source: existing.source,
+            action: "queue_completed",
+            detail: existing.instruction,
+          });
+        }
+      }
       return updated;
     },
     reorderQueue(ids: string[]): void {
