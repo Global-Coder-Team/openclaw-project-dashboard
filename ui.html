@@ -224,9 +224,11 @@ async function refresh(){
   const data = await api('/api/state');
   STATE = data;
   el('dbMeta').textContent = 'SQLite';
-  el('nowMeta').textContent = new Date().toLocaleTimeString();
+  el('nowMeta').innerHTML = `<span class="pulse-dot">&#9679;</span> ${new Date().toLocaleTimeString()}`;
   renderProjects();
   renderQueue();
+  renderCron();
+  renderActivity();
   if (!selectedId && data.projects.length) selectedId = data.projects[0].id;
   renderDetail();
 }
@@ -325,6 +327,57 @@ function renderQueue() {
       const q = queue.find(q => q.id === item.dataset.qid);
       if (q?.projectId) { selectedId = q.projectId; switchTab('overview'); renderDetail(); }
     });
+  });
+}
+
+function renderCron() {
+  const crons = STATE?.cronHealth || [];
+  el('cronCount').textContent = crons.length;
+  const list = el('cronList');
+  if (!crons.length) {
+    list.innerHTML = '<div class="small">No cron jobs detected.</div>';
+    return;
+  }
+  list.innerHTML = crons.map(c => `
+    <div class="item" style="padding:8px;">
+      <div class="itemTop">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="health-dot health-${c.health || 'yellow'}"></span>
+          <span style="font-size:12px;font-weight:600;">${escapeHtml(c.name)}</span>
+        </div>
+        <span class="badge">${escapeHtml(c.lastStatus || 'unknown')}</span>
+      </div>
+      <div class="small">
+        Last: ${c.lastAt ? fmtTime(c.lastAt) : '\u2014'}
+        ${c.lastError ? ` \u00b7 Error: ${escapeHtml(c.lastError)}` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderActivity() {
+  const activity = STATE?.activity || [];
+  const list = el('activityList');
+  if (!activity.length) {
+    list.innerHTML = '<div class="small">No activity yet.</div>';
+    return;
+  }
+  list.innerHTML = activity.slice(0, 15).map(a => {
+    const proj = a.projectId ? (STATE.projects||[]).find(p=>p.id===a.projectId) : null;
+    return `<div class="activity-item">
+      <div class="activity-time">${fmtAge(Date.now() - a.createdAt)}</div>
+      <span class="source-badge source-${a.source}">${a.source}</span>
+      <div style="flex:1;">
+        <span>${escapeHtml(a.action.replace(/_/g,' '))}</span>
+        ${a.detail ? ` \u00b7 <span class="muted">${escapeHtml(a.detail.slice(0,80))}</span>` : ''}
+        ${proj ? ` <span class="queue-project" style="cursor:pointer;" data-pid="${proj.id}">${escapeHtml(proj.name)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Click project name to navigate
+  list.querySelectorAll('[data-pid]').forEach(el => {
+    el.onclick = () => { selectedId = el.dataset.pid; switchTab('overview'); renderDetail(); };
   });
 }
 
@@ -590,6 +643,20 @@ refresh().catch(err=>{
   console.error(err);
   alert('Failed to load: '+err.message);
 });
+
+let pollInterval = null;
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      await refresh();
+      el('offlineBadge').style.display = 'none';
+    } catch (err) {
+      el('offlineBadge').style.display = 'inline';
+    }
+  }, 15000);
+}
+startPolling();
 </script>
 </body>
 </html>
