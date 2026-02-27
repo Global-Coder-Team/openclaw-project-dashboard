@@ -86,6 +86,23 @@ export default function register(api: OpenClawPluginApi) {
           }
         }
 
+        if (req.method === "POST" && url === "/api/projects/update") {
+          const body = await readJson(req);
+          const id = String(body?.id ?? "").trim();
+          if (!id) return json(res, 400, { error: "id required" });
+          const patch: any = { id };
+          for (const key of ["name", "status", "objective", "nextAction", "strategy", "hypothesis", "constraints", "success", "dueDate"]) {
+            if (body?.[key] !== undefined && body?.[key] !== null) patch[key] = body[key];
+          }
+          try {
+            const repo = await getRepo();
+            const proj = repo.updateProject(patch);
+            return json(res, 200, proj);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
         if (req.method === "POST" && url === "/api/updates") {
           const body = await readJson(req);
           const projectId = String(body?.projectId ?? "").trim();

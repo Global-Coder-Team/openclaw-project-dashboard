@@ -11,6 +11,10 @@ export type Project = {
   status: ProjectStatus;
   objective: string | null;
   nextAction: string | null;
+  strategy: string | null;
+  hypothesis: string | null;
+  constraints: string | null;
+  success: string | null;
   dueDate: string | null; // ISO-8601 date
   createdAt: number;
   updatedAt: number;
@@ -77,6 +81,10 @@ function migrate(db: SqlDb) {
       status TEXT NOT NULL,
       objective TEXT,
       nextAction TEXT,
+      strategy TEXT,
+      hypothesis TEXT,
+      constraints TEXT,
+      success TEXT,
       dueDate TEXT,
       createdAt INTEGER NOT NULL,
       updatedAt INTEGER NOT NULL
@@ -138,6 +146,10 @@ export function makeRepo(db: SqlDb) {
     status: r.status as ProjectStatus,
     objective: r.objective ?? null,
     nextAction: r.nextAction ?? null,
+    strategy: r.strategy ?? null,
+    hypothesis: r.hypothesis ?? null,
+    constraints: r.constraints ?? null,
+    success: r.success ?? null,
     dueDate: r.dueDate ?? null,
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
@@ -181,8 +193,8 @@ export function makeRepo(db: SqlDb) {
       const id = `p_${Math.random().toString(36).slice(2, 10)}`;
       exec(
         db,
-        `INSERT INTO projects (id,name,status,objective,nextAction,dueDate,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?)`,
-        [id, name, "green", null, null, null, now, now]
+        `INSERT INTO projects (id,name,status,objective,nextAction,strategy,hypothesis,constraints,success,dueDate,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, name, "green", null, null, null, null, null, null, null, now, now]
       );
       return this.getProjectById(id)!;
     },
@@ -192,8 +204,20 @@ export function makeRepo(db: SqlDb) {
       const updated: Project = { ...existing, ...patch, updatedAt: Date.now() };
       exec(
         db,
-        `UPDATE projects SET name=?, status=?, objective=?, nextAction=?, dueDate=?, updatedAt=? WHERE id=?`,
-        [updated.name, updated.status, updated.objective, updated.nextAction, updated.dueDate, updated.updatedAt, updated.id]
+        `UPDATE projects SET name=?, status=?, objective=?, nextAction=?, strategy=?, hypothesis=?, constraints=?, success=?, dueDate=?, updatedAt=? WHERE id=?`,
+        [
+          updated.name,
+          updated.status,
+          updated.objective,
+          updated.nextAction,
+          updated.strategy,
+          updated.hypothesis,
+          updated.constraints,
+          updated.success,
+          updated.dueDate,
+          updated.updatedAt,
+          updated.id,
+        ]
       );
       return this.getProjectById(updated.id)!;
     },
