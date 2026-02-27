@@ -11,11 +11,14 @@
     ]
   },
   "scripts": {
-    "test": "echo no-tests",
+    "test": "vitest run",
     "build": "echo no-build"
   },
   "dependencies": {
     "openclaw": "^2026.2.25",
     "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
   }
 }
