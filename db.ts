@@ -113,6 +113,19 @@ function migrate(db: SqlDb) {
 
     CREATE INDEX IF NOT EXISTS idx_tasks_projectId_status ON tasks(projectId, status);
   `);
+
+  // Upgrade existing DBs: add new project columns if missing
+  const cols = qAll(db, `PRAGMA table_info(projects)`);
+  const have = new Set(cols.map((c: any) => String(c.name)));
+  const maybeAdd = (col: string) => {
+    if (!have.has(col)) {
+      db.run(`ALTER TABLE projects ADD COLUMN ${col} TEXT`);
+    }
+  };
+  maybeAdd("strategy");
+  maybeAdd("hypothesis");
+  maybeAdd("constraints");
+  maybeAdd("success");
 }
 
 function persist(db: SqlDb, dbFile: string) {
