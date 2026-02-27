@@ -152,12 +152,12 @@ function activeFor(projectId){
   const now = Date.now();
   const upd = (STATE?.recentUpdates||[]).find(u => u.projectId===projectId && (now - u.createdAt) <= 10*60*1000);
   const taskBlock = (STATE?.tasks||[]).find(t => t.projectId===projectId);
-  const doing = (taskBlock?.items||[]).find(t => t.status==='doing' && (now - t.updatedAt)<=15*60*1000);
-  const schedule = (STATE?.schedules||[]).find(s => s.projectId===projectId && s.lastAt && (now - s.lastAt)<=5*60*1000);
+  const doing = (taskBlock?.items||[]).find(t => t.status==='doing' && (now - t.updatedAt)<=30*60*1000);
+  const schedule = (STATE?.schedules||[]).find(s => s.projectId===projectId && s.lastAt);
   const reasons = [];
   if (upd) reasons.push(`Recent update ${fmtAge(now - upd.createdAt)} ago`);
   if (doing) reasons.push(`Task in progress: ${doing.title}`);
-  if (schedule) reasons.push(`Schedule ran ${fmtAge(now - schedule.lastAt)} ago: ${schedule.jobName}`);
+  if (schedule) reasons.push(`Schedule last ran ${fmtAge(now - schedule.lastAt)} ago: ${schedule.jobName}`);
   return {active: reasons.length>0, reasons};
 }
 

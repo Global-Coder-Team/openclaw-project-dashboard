@@ -265,12 +265,12 @@ function computeActive(projects: any[], updates: any[], tasks: any[], schedules:
   return projects.map((p) => {
     const upd = updates.find((u) => u.projectId === p.id && now - u.createdAt <= 10 * 60 * 1000);
     const taskBlock = tasks.find((t: any) => t.projectId === p.id) || { items: [] };
-    const doing = (taskBlock.items || []).find((t: any) => t.status === "doing" && now - t.updatedAt <= 15 * 60 * 1000);
-    const schedule = schedules.find((s: any) => s.projectId === p.id && s.lastAt && now - s.lastAt <= 5 * 60 * 1000);
+    const doing = (taskBlock.items || []).find((t: any) => t.status === "doing" && now - t.updatedAt <= 30 * 60 * 1000);
+    const schedule = schedules.find((s: any) => s.projectId === p.id && s.lastAt);
     const reasons: string[] = [];
     if (upd) reasons.push(`Recent update ${Math.floor((now - upd.createdAt) / 60000)}m ago`);
     if (doing) reasons.push(`Task in progress: ${doing.title}`);
-    if (schedule) reasons.push(`Schedule ran ${Math.floor((now - schedule.lastAt) / 60000)}m ago: ${schedule.jobName}`);
+    if (schedule) reasons.push(`Schedule last ran ${Math.floor((now - schedule.lastAt) / 60000)}m ago: ${schedule.jobName}`);
     return { projectId: p.id, reasons };
   });
 }
