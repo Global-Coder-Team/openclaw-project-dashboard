@@ -38,6 +38,36 @@ export type Task = {
   updatedAt: number;
 };
 
+export type QueueStatus = "pending" | "in_progress" | "completed" | "skipped";
+export type QueueSource = "human" | "agent";
+export type QueueItem = {
+  id: string;
+  projectId: string | null;
+  instruction: string;
+  rank: number;
+  status: QueueStatus;
+  source: QueueSource;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ActivityAction = "task_started" | "task_completed" | "status_changed" | "update_added" | "queue_picked" | "queue_completed" | "cron_ran" | "cron_failed";
+export type ActivityEntry = {
+  id: string;
+  projectId: string | null;
+  source: QueueSource;
+  action: string;
+  detail: string | null;
+  createdAt: number;
+};
+
+export type CronSnapshot = {
+  jobId: string;
+  lastStatus: string;
+  lastError: string | null;
+  lastSeenAt: number;
+};
+
 export function resolveDbPath(params: { stateDir?: string; dbPath: string }) {
   const dbPath = params.dbPath.trim();
   if (!dbPath) throw new Error("dbPath required");
@@ -114,6 +144,39 @@ function migrate(db: SqlDb) {
     CREATE INDEX IF NOT EXISTS idx_tasks_projectId_status ON tasks(projectId, status);
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS queue (
+      id TEXT PRIMARY KEY,
+      projectId TEXT,
+      instruction TEXT NOT NULL,
+      rank INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_queue_status_rank ON queue(status, rank);
+
+    CREATE TABLE IF NOT EXISTS activity (
+      id TEXT PRIMARY KEY,
+      projectId TEXT,
+      source TEXT NOT NULL,
+      action TEXT NOT NULL,
+      detail TEXT,
+      createdAt INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activity_createdAt ON activity(createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS cron_snapshots (
+      jobId TEXT PRIMARY KEY,
+      lastStatus TEXT,
+      lastError TEXT,
+      lastSeenAt INTEGER
+    );
+  `);
+
   // Upgrade existing DBs: add new project columns if missing
   const cols = qAll(db, `PRAGMA table_info(projects)`);
   const have = new Set(cols.map((c: any) => String(c.name)));
@@ -183,6 +246,33 @@ export function makeRepo(db: SqlDb) {
     status: (r.status as TaskStatus) ?? "todo",
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
+  });
+
+  const normQueueItem = (r: any): QueueItem => ({
+    id: String(r.id),
+    projectId: r.projectId ? String(r.projectId) : null,
+    instruction: String(r.instruction),
+    rank: Number(r.rank),
+    status: r.status as QueueStatus,
+    source: (r.source as QueueSource) ?? "human",
+    createdAt: Number(r.createdAt),
+    updatedAt: Number(r.updatedAt),
+  });
+
+  const normActivity = (r: any): ActivityEntry => ({
+    id: String(r.id),
+    projectId: r.projectId ? String(r.projectId) : null,
+    source: (r.source as QueueSource) ?? "human",
+    action: String(r.action),
+    detail: r.detail ? String(r.detail) : null,
+    createdAt: Number(r.createdAt),
+  });
+
+  const normCronSnapshot = (r: any): CronSnapshot => ({
+    jobId: String(r.jobId),
+    lastStatus: String(r.lastStatus ?? "unknown"),
+    lastError: r.lastError ? String(r.lastError) : null,
+    lastSeenAt: Number(r.lastSeenAt ?? 0),
   });
 
   return {
@@ -294,6 +384,94 @@ export function makeRepo(db: SqlDb) {
         updated.id,
       ]);
       return updated;
+    },
+
+    // ── Queue ──
+
+    listQueue(): QueueItem[] {
+      return qAll(db, `SELECT * FROM queue WHERE status IN ('pending','in_progress') ORDER BY rank ASC`).map(normQueueItem);
+    },
+    listQueueByStatus(status: QueueStatus): QueueItem[] {
+      return qAll(db, `SELECT * FROM queue WHERE status = ? ORDER BY rank ASC`, [status]).map(normQueueItem);
+    },
+    addQueueItem(params: { projectId?: string | null; instruction: string; rank?: number; source?: QueueSource }): QueueItem {
+      const now = Date.now();
+      const id = `q_${Math.random().toString(36).slice(2, 10)}`;
+      let rank = params.rank;
+      if (rank == null) {
+        const maxRow = qGet(db, `SELECT MAX(rank) as m FROM queue`);
+        rank = (maxRow?.m != null ? Number(maxRow.m) : 0) + 1;
+      }
+      const source: QueueSource = params.source ?? "human";
+      exec(db, `INSERT INTO queue (id,projectId,instruction,rank,status,source,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?)`, [
+        id, params.projectId ?? null, params.instruction, rank, "pending", source, now, now,
+      ]);
+      return { id, projectId: params.projectId ?? null, instruction: params.instruction, rank, status: "pending", source, createdAt: now, updatedAt: now };
+    },
+    updateQueueItem(params: { id: string; status?: QueueStatus; instruction?: string; rank?: number }): QueueItem {
+      const row = qGet(db, `SELECT * FROM queue WHERE id = ?`, [params.id]);
+      if (!row) throw new Error("Queue item not found");
+      const existing = normQueueItem(row);
+      const updated: QueueItem = {
+        ...existing,
+        status: params.status ?? existing.status,
+        instruction: params.instruction ?? existing.instruction,
+        rank: params.rank ?? existing.rank,
+        updatedAt: Date.now(),
+      };
+      exec(db, `UPDATE queue SET status=?, instruction=?, rank=?, updatedAt=? WHERE id=?`, [
+        updated.status, updated.instruction, updated.rank, updated.updatedAt, updated.id,
+      ]);
+      return updated;
+    },
+    reorderQueue(ids: string[]): void {
+      ids.forEach((id, i) => {
+        exec(db, `UPDATE queue SET rank=?, updatedAt=? WHERE id=?`, [i + 1, Date.now(), id]);
+      });
+    },
+    deleteQueueItem(id: string): void {
+      exec(db, `DELETE FROM queue WHERE id = ?`, [id]);
+    },
+    listRecentlyCompleted(limit = 10): QueueItem[] {
+      const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+      return qAll(db, `SELECT * FROM queue WHERE status = 'completed' AND updatedAt > ? ORDER BY updatedAt DESC LIMIT ?`, [cutoff, limit]).map(normQueueItem);
+    },
+
+    // ── Activity ──
+
+    logActivity(params: { projectId?: string | null; source: QueueSource; action: string; detail?: string | null }): ActivityEntry {
+      const now = Date.now();
+      const id = `a_${Math.random().toString(36).slice(2, 10)}`;
+      exec(db, `INSERT INTO activity (id,projectId,source,action,detail,createdAt) VALUES (?,?,?,?,?,?)`, [
+        id, params.projectId ?? null, params.source, params.action, params.detail ?? null, now,
+      ]);
+      return { id, projectId: params.projectId ?? null, source: params.source, action: params.action, detail: params.detail ?? null, createdAt: now };
+    },
+    listActivity(limit = 50, offset = 0): ActivityEntry[] {
+      return qAll(db, `SELECT * FROM activity ORDER BY createdAt DESC, rowid DESC LIMIT ? OFFSET ?`, [limit, offset]).map(normActivity);
+    },
+
+    // ── Cron Snapshots ──
+
+    getCronSnapshot(jobId: string): CronSnapshot | null {
+      const r = qGet(db, `SELECT * FROM cron_snapshots WHERE jobId = ?`, [jobId]);
+      return r ? normCronSnapshot(r) : null;
+    },
+    upsertCronSnapshot(params: { jobId: string; lastStatus: string; lastError?: string | null }): void {
+      const now = Date.now();
+      const existing = qGet(db, `SELECT * FROM cron_snapshots WHERE jobId = ?`, [params.jobId]);
+      if (existing) {
+        exec(db, `UPDATE cron_snapshots SET lastStatus=?, lastError=?, lastSeenAt=? WHERE jobId=?`, [
+          params.lastStatus, params.lastError ?? null, now, params.jobId,
+        ]);
+      } else {
+        exec(db, `INSERT INTO cron_snapshots (jobId,lastStatus,lastError,lastSeenAt) VALUES (?,?,?,?)`, [
+          params.jobId, params.lastStatus, params.lastError ?? null, now,
+        ]);
+      }
+    },
+    listCronSnapshots(): CronSnapshot[] {
+      return qAll(db, `SELECT * FROM cron_snapshots`).map(normCronSnapshot);
     },
   };
 }
