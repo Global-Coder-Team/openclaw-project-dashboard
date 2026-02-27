@@ -2,13 +2,15 @@ import http from "node:http";
 import { readFileSync } from "node:fs";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { makeRepo, openDb, resolveDbPath, type UpdateType } from "./db.js";
+import { inferSeedProjects, loadCronJobsFromStateDir } from "./bootstrap.js";
 
-type Cfg = { port?: number; dbPath?: string };
+type Cfg = { port?: number; dbPath?: string; bootstrapOnEmpty?: boolean };
 
 function cfgOrDefault(cfg: Cfg | undefined) {
   return {
     port: cfg?.port ?? 5178,
     dbPath: cfg?.dbPath ?? "project-dashboard.sqlite",
+    bootstrapOnEmpty: cfg?.bootstrapOnEmpty !== false,
   };
 }
 
@@ -57,11 +59,16 @@ export default function register(api: OpenClawPluginApi) {
           const repo = await getRepo();
           const projects = repo.listProjects();
           const recentUpdates = repo.listRecentUpdates(50);
+          const jobs = loadCronJobsFromStateDir(stateDir);
+          const schedules = mapCronToProjects(projects, jobs);
+          const tasks = projects.map((p) => ({ projectId: p.id, items: repo.listTasks(p.id) }));
           res.writeHead(200, { "content-type": "application/json" });
           res.end(JSON.stringify({
             dbFile,
             projects,
             recentUpdates,
+            schedules,
+            tasks,
           }));
           return;
         }
@@ -94,6 +101,36 @@ export default function register(api: OpenClawPluginApi) {
             }
             const upd = repo.addUpdate({ projectId, type, text });
             return json(res, 200, upd);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        if (req.method === "POST" && url === "/api/tasks") {
+          const body = await readJson(req);
+          const projectId = String(body?.projectId ?? "").trim();
+          const title = String(body?.title ?? "").trim();
+          const status = body?.status ? String(body.status) : undefined;
+          if (!projectId || !title) return json(res, 400, { error: "projectId and title required" });
+          try {
+            const repo = await getRepo();
+            const task = repo.addTask({ projectId, title, status });
+            return json(res, 200, task);
+          } catch (e: any) {
+            return json(res, 400, { error: e?.message ?? "failed" });
+          }
+        }
+
+        if (req.method === "POST" && url === "/api/tasks/update") {
+          const body = await readJson(req);
+          const id = String(body?.id ?? "").trim();
+          const status = body?.status ? String(body.status) : undefined;
+          const title = body?.title ? String(body.title) : undefined;
+          if (!id) return json(res, 400, { error: "id required" });
+          try {
+            const repo = await getRepo();
+            const task = repo.updateTask({ id, status: status as any, title });
+            return json(res, 200, task);
           } catch (e: any) {
             return json(res, 400, { error: e?.message ?? "failed" });
           }
@@ -172,3 +209,35 @@ async function readJson(req: http.IncomingMessage): Promise<any> {
     return null;
   }
 }
+
+function mapCronToProjects(
+  projects: Array<{ id: string; name: string }>,
+  jobs: Array<{ name: string; id: string; status?: string; lastAt?: number | null; nextAt?: number | null }>
+) {
+  const lowerProjects = projects.map((p) => ({ ...p, key: p.name.toLowerCase() }));
+  const findBy = (pred: (name: string) => boolean) => lowerProjects.find((p) => pred(p.key))?.id ?? null;
+
+  return jobs.map((j) => {
+    const name = j.name || "";
+    const lower = name.toLowerCase();
+    let projectId: string | null = null;
+
+    // Prefix mapping
+    if (lower.startsWith("church-")) projectId = findBy((k) => k.includes("church outreach"));
+    else if (lower.startsWith("burundi-")) projectId = findBy((k) => k.includes("burundi"));
+    else if (lower.startsWith("goatport")) projectId = findBy((k) => k.includes("goatport"));
+    else if (lower.startsWith("globalcoder") || lower.startsWith("global-coder"))
+      projectId = findBy((k) => k.includes("global coder"));
+    else if (lower.startsWith("nightly-learning")) projectId = findBy((k) => k.includes("automation"));
+
+    return {
+      jobId: j.id,
+      jobName: name,
+      status: j.status ?? "unknown",
+      lastAt: j.lastAt ?? null,
+      nextAt: j.nextAt ?? null,
+      projectId,
+    };
+  });
+}
+

@@ -24,6 +24,16 @@ export type Update = {
   createdAt: number;
 };
 
+export type TaskStatus = "todo" | "doing" | "done";
+export type Task = {
+  id: string;
+  projectId: string;
+  title: string;
+  status: TaskStatus;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export function resolveDbPath(params: { stateDir?: string; dbPath: string }) {
   const dbPath = params.dbPath.trim();
   if (!dbPath) throw new Error("dbPath required");
@@ -83,6 +93,17 @@ function migrate(db: SqlDb) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_updates_projectId_createdAt ON updates(projectId, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS tasks (
+      id TEXT PRIMARY KEY,
+      projectId TEXT NOT NULL,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_tasks_projectId_status ON tasks(projectId, status);
   `);
 }
 
@@ -130,9 +151,22 @@ export function makeRepo(db: SqlDb) {
     createdAt: Number(r.createdAt),
   });
 
+  const normTask = (r: any): Task => ({
+    id: String(r.id),
+    projectId: String(r.projectId),
+    title: String(r.title),
+    status: (r.status as TaskStatus) ?? "todo",
+    createdAt: Number(r.createdAt),
+    updatedAt: Number(r.updatedAt),
+  });
+
   return {
     listProjects(): Project[] {
       return qAll(db, `SELECT * FROM projects ORDER BY updatedAt DESC`).map(normProject);
+    },
+    projectCount(): number {
+      const r = qGet(db, `SELECT COUNT(1) as c FROM projects`);
+      return r ? Number(r.c) : 0;
     },
     getProjectById(id: string): Project | null {
       const r = qGet(db, `SELECT * FROM projects WHERE id = ?`, [id]);
@@ -187,6 +221,42 @@ export function makeRepo(db: SqlDb) {
         [limit]
       );
       return rows.map((r) => ({ ...normUpdate(r), projectName: String(r.projectName) }));
+    },
+
+    listTasks(projectId: string): Task[] {
+      return qAll(db, `SELECT * FROM tasks WHERE projectId = ? ORDER BY updatedAt DESC`, [projectId]).map(normTask);
+    },
+    addTask(params: { projectId: string; title: string; status?: TaskStatus }): Task {
+      const now = Date.now();
+      const id = `t_${Math.random().toString(36).slice(2, 10)}`;
+      const status: TaskStatus = params.status ?? "todo";
+      exec(db, `INSERT INTO tasks (id,projectId,title,status,createdAt,updatedAt) VALUES (?,?,?,?,?,?)`, [
+        id,
+        params.projectId,
+        params.title,
+        status,
+        now,
+        now,
+      ]);
+      return { id, projectId: params.projectId, title: params.title, status, createdAt: now, updatedAt: now };
+    },
+    updateTask(params: { id: string; status?: TaskStatus; title?: string }): Task {
+      const row = qGet(db, `SELECT * FROM tasks WHERE id = ?`, [params.id]);
+      if (!row) throw new Error("Task not found");
+      const task = normTask(row);
+      const updated: Task = {
+        ...task,
+        title: params.title ?? task.title,
+        status: params.status ?? task.status,
+        updatedAt: Date.now(),
+      };
+      exec(db, `UPDATE tasks SET title=?, status=?, updatedAt=? WHERE id=?`, [
+        updated.title,
+        updated.status,
+        updated.updatedAt,
+        updated.id,
+      ]);
+      return updated;
     },
   };
 }
