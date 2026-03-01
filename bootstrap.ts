@@ -7,6 +7,7 @@ export type CronJob = {
   schedule?: any;
   enabled?: boolean;
   status?: string;
+  lastError?: string | null;
   lastAt?: number | null;
   nextAt?: number | null;
 };
@@ -20,15 +21,38 @@ export function loadCronJobsFromStateDir(stateDir: string): CronJob[] {
 
   const jobs = Array.isArray(json?.jobs) ? json.jobs : Array.isArray(json) ? json : [];
   return jobs
-    .map((j: any) => ({
-      id: String(j.id ?? j.jobId ?? ""),
-      name: String(j.name ?? ""),
-      schedule: j.schedule,
-      enabled: j.enabled !== false,
-      status: j.status,
-      lastAt: typeof j.lastAtMs === "number" ? j.lastAtMs : typeof j.lastAt === "number" ? j.lastAt : null,
-      nextAt: typeof j.nextAtMs === "number" ? j.nextAtMs : typeof j.nextAt === "number" ? j.nextAt : null,
-    }))
+    .map((j: any) => {
+      const st = j.state ?? {};
+      const lastAt =
+        typeof st.lastRunAtMs === "number" ? st.lastRunAtMs :
+        typeof st.lastAtMs === "number" ? st.lastAtMs :
+        typeof j.lastAtMs === "number" ? j.lastAtMs :
+        typeof j.lastAt === "number" ? j.lastAt : null;
+
+      const nextAt =
+        typeof st.nextRunAtMs === "number" ? st.nextRunAtMs :
+        typeof st.nextAtMs === "number" ? st.nextAtMs :
+        typeof j.nextAtMs === "number" ? j.nextAtMs :
+        typeof j.nextAt === "number" ? j.nextAt : null;
+
+      const status =
+        typeof st.lastStatus === "string" ? st.lastStatus :
+        typeof st.lastRunStatus === "string" ? st.lastRunStatus :
+        typeof j.status === "string" ? j.status : undefined;
+
+      const lastError = typeof st.lastError === "string" ? st.lastError : null;
+
+      return {
+        id: String(j.id ?? j.jobId ?? ""),
+        name: String(j.name ?? ""),
+        schedule: j.schedule,
+        enabled: j.enabled !== false,
+        status,
+        lastError,
+        lastAt,
+        nextAt,
+      } as CronJob;
+    })
     .filter((j: CronJob) => j.id && j.name);
 }
 

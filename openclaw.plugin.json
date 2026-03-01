@@ -7,7 +7,9 @@
     "additionalProperties": false,
     "properties": {
       "port": { "type": "number", "default": 5178 },
-      "dbPath": { "type": "string", "default": "project-dashboard.sqlite" }
+      "dbPath": { "type": "string", "default": "project-dashboard.sqlite" },
+      "bootstrapOnEmpty": { "type": "boolean", "default": true },
+      "autoStart": { "type": "boolean", "default": true }
     }
   }
 }

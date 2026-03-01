@@ -175,6 +175,14 @@ function migrate(db: SqlDb) {
       lastError TEXT,
       lastSeenAt INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS ingestions (
+      key TEXT PRIMARY KEY,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ingestions_updatedAt ON ingestions(updatedAt DESC);
   `);
 
   // Upgrade existing DBs: add new project columns if missing
@@ -275,7 +283,25 @@ export function makeRepo(db: SqlDb) {
     lastSeenAt: Number(r.lastSeenAt ?? 0),
   });
 
+  const hasIngestion = (key: string) => {
+    const r = qGet(db, `SELECT key FROM ingestions WHERE key = ?`, [key]);
+    return !!r;
+  };
+
+  const markIngestion = (key: string) => {
+    const now = Date.now();
+    const r = qGet(db, `SELECT key FROM ingestions WHERE key = ?`, [key]);
+    if (r) {
+      exec(db, `UPDATE ingestions SET updatedAt=? WHERE key=?`, [now, key]);
+    } else {
+      exec(db, `INSERT INTO ingestions (key,createdAt,updatedAt) VALUES (?,?,?)`, [key, now, now]);
+    }
+  };
+
   return {
+    hasIngestion,
+    markIngestion,
+
     listProjects(): Project[] {
       return qAll(db, `SELECT * FROM projects ORDER BY updatedAt DESC`).map(normProject);
     },

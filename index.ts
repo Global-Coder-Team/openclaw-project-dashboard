@@ -3,14 +3,16 @@ import { readFileSync } from "node:fs";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { makeRepo, openDb, resolveDbPath, type UpdateType } from "./db.js";
 import { inferSeedProjects, loadCronJobsFromStateDir } from "./bootstrap.js";
+import { ingestDailyMemory, ingestLearnings } from "./ingest.js";
 
-type Cfg = { port?: number; dbPath?: string; bootstrapOnEmpty?: boolean };
+type Cfg = { port?: number; dbPath?: string; bootstrapOnEmpty?: boolean; autoStart?: boolean };
 
 function cfgOrDefault(cfg: Cfg | undefined) {
   return {
     port: cfg?.port ?? 5178,
     dbPath: cfg?.dbPath ?? "project-dashboard.sqlite",
     bootstrapOnEmpty: cfg?.bootstrapOnEmpty !== false,
+    autoStart: cfg?.autoStart !== false,
   };
 }
 
@@ -28,7 +30,7 @@ export default function register(api: OpenClawPluginApi) {
     ? (api as any).runtime.state.resolveStateDir((api as any).config)
     : process.cwd();
 
-  const workspaceDir = process.cwd();
+  const workspaceDir = ((api as any)?.runtime?.workspace?.dir as string | undefined) ?? process.cwd();
   const dbFile = resolveDbPath({ stateDir, dbPath: cfg.dbPath });
 
   // sql.js init is async; we lazily open on first use.
@@ -67,6 +69,19 @@ export default function register(api: OpenClawPluginApi) {
 
         if (req.method === "GET" && url === "/api/state") {
           const repo = await getRepo();
+          // Auto-seed/ensure core projects exist (keeps dashboard populated even when you never manually add projects)
+          if (cfg.bootstrapOnEmpty) {
+            ensureSeeded(repo, { workspaceDir, stateDir });
+          }
+
+          // Auto-ingest workspace signals so the dashboard stays populated.
+          try {
+            ingestLearnings(repo as any, workspaceDir);
+            ingestDailyMemory(repo as any, workspaceDir, 2);
+          } catch {
+            // best-effort only
+          }
+
           const projects = repo.listProjects();
           const recentUpdates = repo.listRecentUpdates(50);
           const jobs = loadCronJobsFromStateDir(stateDir);
@@ -78,14 +93,29 @@ export default function register(api: OpenClawPluginApi) {
           for (const j of jobs) {
             const prev = repo.getCronSnapshot(j.id);
             const status = j.status ?? "unknown";
-            if (!prev || prev.lastStatus !== status || (j.lastAt && j.lastAt !== prev.lastSeenAt)) {
+            const changed = !prev || prev.lastStatus !== status || (j.lastAt && j.lastAt !== prev.lastSeenAt);
+            if (changed) {
               repo.upsertCronSnapshot({ jobId: j.id, lastStatus: status });
-              if (prev && prev.lastStatus !== status) {
-                repo.logActivity({
-                  source: "agent",
-                  action: status === "failure" ? "cron_failed" : "cron_ran",
-                  detail: j.name,
-                });
+
+              // Log activity + write an update into the mapped project so information "flows".
+              const mapped = schedules.find((s: any) => s.jobId === j.id);
+              const projectId = mapped?.projectId ?? null;
+
+              repo.logActivity({
+                projectId,
+                source: "agent",
+                action: status === "failure" || status === "error" ? "cron_failed" : "cron_ran",
+                detail: j.name,
+              });
+
+              if (projectId) {
+                const txt = `${j.name} → ${status}${j.lastAt ? ` @ ${new Date(j.lastAt).toLocaleString()}` : ""}`;
+                const type: UpdateType = status === "error" || status === "failure" ? "blocker" : "progress";
+                repo.addUpdate({ projectId, type, text: txt });
+
+                // Auto-set project status from cron result
+                if (status === "error" || status === "failure") repo.updateProject({ id: projectId, status: "red" } as any);
+                else if (status === "unknown") repo.updateProject({ id: projectId, status: "yellow" } as any);
               }
             }
           }
@@ -96,7 +126,16 @@ export default function register(api: OpenClawPluginApi) {
           const snapshots = repo.listCronSnapshots();
           const cronHealth = jobs.map((j) => {
             const snap = snapshots.find((s) => s.jobId === j.id);
-            return { ...j, lastStatus: snap?.lastStatus ?? "unknown", lastError: snap?.lastError ?? null, health: deriveHealth(snap) };
+            const lastStatus = (j.status ?? snap?.lastStatus ?? "unknown");
+            const lastError = (j as any).lastError ?? snap?.lastError ?? null;
+            const lastSeenAt = snap?.lastSeenAt ?? null;
+            return {
+              ...j,
+              lastStatus,
+              lastError,
+              lastSeenAt,
+              health: deriveHealth({ lastStatus, lastSeenAt, lastAt: j.lastAt ?? null }),
+            };
           });
 
           res.writeHead(200, { "content-type": "application/json" });
@@ -305,12 +344,15 @@ export default function register(api: OpenClawPluginApi) {
           const snapshots = repo.listCronSnapshots();
           const cronHealth = jobs.map((j) => {
             const snap = snapshots.find((s) => s.jobId === j.id);
+            const lastStatus = (j.status ?? snap?.lastStatus ?? "unknown");
+            const lastError = (j as any).lastError ?? snap?.lastError ?? null;
+            const lastSeenAt = snap?.lastSeenAt ?? null;
             return {
               ...j,
-              lastStatus: snap?.lastStatus ?? "unknown",
-              lastError: snap?.lastError ?? null,
-              lastSeenAt: snap?.lastSeenAt ?? null,
-              health: deriveHealth(snap),
+              lastStatus,
+              lastError,
+              lastSeenAt,
+              health: deriveHealth({ lastStatus, lastSeenAt, lastAt: j.lastAt ?? null }),
             };
           });
           return json(res, 200, cronHealth);
@@ -327,6 +369,11 @@ export default function register(api: OpenClawPluginApi) {
         json(res, 404, { error: "not found" });
       })
       .listen(cfg.port, "127.0.0.1");
+  }
+
+  // Auto-start the dashboard server so http://127.0.0.1:<port> works without running a command.
+  if (cfg.autoStart) {
+    ensureServer().catch(() => void 0);
   }
 
   api.registerCommand({
@@ -429,12 +476,43 @@ function mapCronToProjects(
   });
 }
 
-function deriveHealth(snap: { lastStatus: string; lastSeenAt: number } | null | undefined): "green" | "yellow" | "red" {
-  if (!snap || !snap.lastSeenAt) return "yellow";
-  const age = Date.now() - snap.lastSeenAt;
-  if (snap.lastStatus === "failure") return "red";
+function deriveHealth(params: { lastStatus?: string | null; lastSeenAt?: number | null; lastAt?: number | null } | null | undefined): "green" | "yellow" | "red" {
+  if (!params) return "yellow";
+  const status = String(params.lastStatus ?? "unknown").toLowerCase();
+  const seenAt = typeof params.lastSeenAt === "number" && params.lastSeenAt > 0 ? params.lastSeenAt : null;
+  const lastAt = typeof params.lastAt === "number" && params.lastAt > 0 ? params.lastAt : null;
+  const ts = seenAt ?? lastAt;
+
+  if (status === "error" || status === "failure" || status === "failed") return "red";
+  if (!ts) return "yellow";
+
+  const age = Date.now() - ts;
   if (age > 24 * 60 * 60 * 1000) return "yellow"; // stale > 24h
   return "green";
+}
+
+function ensureSeeded(
+  repo: Awaited<ReturnType<typeof makeRepo>>,
+  params: { workspaceDir: string; stateDir: string }
+) {
+  const seeds = inferSeedProjects(params);
+
+  // Always ensure these exist (even if MEMORY.md heuristics miss them)
+  const required = [
+    "Inbox / Triage",
+    "Research / Opportunities",
+    "Ideas / Backlog",
+  ];
+  for (const name of required) seeds.push({ name, seedUpdate: "Auto-created baseline project." });
+
+  for (const s of seeds) {
+    const existing = repo.getProjectByName(s.name);
+    if (existing) continue;
+    const proj = repo.createProject(s.name);
+    if (s.seedUpdate) {
+      repo.addUpdate({ projectId: proj.id, type: "note", text: s.seedUpdate });
+    }
+  }
 }
 
 function computeActive(projects: any[], updates: any[], tasks: any[], schedules: any[]) {
